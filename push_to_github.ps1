@@ -16,9 +16,8 @@ Write-Host "Committing changes..." -ForegroundColor Cyan
 git commit -m "Initial commit: Premium Habit Tracker"
 
 Write-Host "Setting remote repository URL..." -ForegroundColor Cyan
-# This handles the 'already exists' error by forcing the URL to update
 git remote remove origin 2>$null
-git remote add origin git@github.com:anshid0491/project-3.git
+git remote add origin https://github.com/anshid0491/project-3.git
 
 Write-Host "Pushing to GitHub..." -ForegroundColor Cyan
 git branch -M main

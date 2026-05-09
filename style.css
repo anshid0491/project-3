@@ -451,13 +451,6 @@ h1 {
     box-shadow: 0 0 15px rgba(79, 172, 254, 0.6);
 }
 
-.cell-check.active::after {
-    content: '✓';
-    color: white;
-    font-size: 0.9rem;
-    font-weight: bold;
-}
-
 /* Chart Headers */
 .chart-header {
     margin-bottom: 2rem;
@@ -710,20 +703,6 @@ h1 {
 .habit-row td:first-child {
     text-align: left;
     font-weight: 500;
-}
-
-.cell-check {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    border: 1px solid var(--glass-border);
-    cursor: pointer;
-    transition: var(--transition-smooth);
-    margin: 0 auto;
-}
-
-.cell-check.active {
-    background: var(--text-color);
 }
 
 /* Analytics Section Refactor */

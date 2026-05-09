@@ -280,6 +280,20 @@ class HabitTracker {
         window.closeSettings = () => this.toggleModal('settings-modal', false);
         window.setHabitType = (type) => this.currentHabitType = type;
         
+        const btnToggleMonthly = document.getElementById('btn-toggle-monthly-history');
+        if (btnToggleMonthly) {
+            btnToggleMonthly.onclick = () => {
+                const section = document.getElementById('monthly-history-section');
+                if (section.style.display === 'none') {
+                    section.style.display = 'block';
+                    this.renderMonthlyArchives();
+                    section.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    section.style.display = 'none';
+                }
+            };
+        }
+        
         window.clearAllData = () => {
             if(confirm('Wipe all data? This will permanently delete all your habits and history.')) {
                 this.habits = [];
@@ -533,7 +547,8 @@ class HabitTracker {
                 ${days.map(d => {
                     const dateKey = d.toISOString().split('T')[0];
                     const active = habit.history && habit.history[dateKey] ? 'active' : '';
-                    return `<td><div class="cell-check ${active}" onclick="tracker.toggleDate(${habit.id}, '${dateKey}')"></div></td>`;
+                    const tickSvg = active ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--bg-color)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>` : '';
+                    return `<td><div class="cell-check ${active}" onclick="tracker.toggleDate(${habit.id}, '${dateKey}')">${tickSvg}</div></td>`;
                 }).join('')}
             </tr>
         `).join('');
@@ -750,6 +765,116 @@ class HabitTracker {
             `);
         }
         path.setAttribute('filter', 'url(#monthly-glow-filter)');
+    }
+
+    renderMonthlyArchives() {
+        const container = document.getElementById('monthly-history-grid');
+        if (!container) return;
+        
+        if (this.habits.length === 0) {
+            container.innerHTML = '<div style="text-align: center; grid-column: 1/-1; opacity: 0.5; padding: 2rem;">No habits tracked yet.</div>';
+            return;
+        }
+
+        // We want to generate past months. Let's say we show the last 6 months including current.
+        const monthsData = [];
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        
+        for (let i = 0; i < 6; i++) {
+            let m = currentMonth - i;
+            let y = currentYear;
+            if (m < 0) {
+                m += 12;
+                y -= 1;
+            }
+            monthsData.push({ month: m, year: y, name: `${monthNames[m]} ${y}` });
+        }
+        
+        container.innerHTML = monthsData.map((data, index) => {
+            // Calculate completion rate for this month
+            const daysInMonth = new Date(data.year, data.month + 1, 0).getDate();
+            let possible = this.habits.length * daysInMonth;
+            let completed = 0;
+            
+            // data points for mini graph
+            const points = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateObj = new Date(data.year, data.month, d);
+                // Adjust to local date string matching our date keys
+                const dateKey = new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+                
+                let dayCompleted = 0;
+                this.habits.forEach(h => {
+                    if (h.history && h.history[dateKey]) {
+                        completed++;
+                        dayCompleted++;
+                    }
+                });
+                points.push((dayCompleted / (this.habits.length || 1)) * 100);
+            }
+            
+            const completionRate = possible > 0 ? Math.round((completed / possible) * 100) : 0;
+            
+            // Generate SVG path for this month's sparkline
+            let dAttr = '';
+            let areaAttr = '';
+            const width = 240;
+            const height = 60;
+            const xStep = width / Math.max(1, daysInMonth - 1);
+            
+            points.forEach((val, i) => {
+                const x = i * xStep;
+                const y = height - (val / 100) * height;
+                
+                if (i === 0) {
+                    dAttr += `M ${x} ${y}`;
+                    areaAttr += `M ${x} ${height} L ${x} ${y}`;
+                } else {
+                    // Smooth curves instead of straight lines for a premium look
+                    const prevX = (i - 1) * xStep;
+                    const prevY = height - (points[i - 1] / 100) * height;
+                    const cp1x = prevX + (x - prevX) / 2;
+                    dAttr += ` C ${cp1x} ${prevY}, ${cp1x} ${y}, ${x} ${y}`;
+                    areaAttr += ` C ${cp1x} ${prevY}, ${cp1x} ${y}, ${x} ${y}`;
+                }
+            });
+            areaAttr += ` L ${width} ${height} Z`;
+            
+            const isCurrent = index === 0; // The first one is the current month
+            const color = isCurrent ? '#a855f7' : '#4facfe'; // current month is purple, past is blue
+            const gradientId = `spark-grad-${index}`;
+
+            return `
+                <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); min-height: 180px; transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: pointer;" onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 10px 30px rgba(0,0,0,0.5)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                        <div>
+                            <h4 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.2rem; ${isCurrent ? 'color: #a855f7;' : ''}">${data.name} ${isCurrent ? '(Current)' : ''}</h4>
+                            <span style="font-size: 0.75rem; opacity: 0.5;">${completed} Protocols Completed</span>
+                        </div>
+                        <div style="font-size: 1.4rem; font-weight: 700; color: ${color}; text-shadow: 0 0 10px ${color}40;">
+                            ${completionRate}%
+                        </div>
+                    </div>
+                    
+                    <div style="height: 60px; width: 100%; position: relative; margin-top: auto;">
+                        <svg viewBox="0 0 ${width} ${height}" style="width: 100%; height: 100%; overflow: visible;" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="${color}" stop-opacity="0.3" />
+                                    <stop offset="100%" stop-color="${color}" stop-opacity="0" />
+                                </linearGradient>
+                            </defs>
+                            <path d="${areaAttr}" fill="url(#${gradientId})" />
+                            <path d="${dAttr}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 4px 6px ${color}40);" />
+                        </svg>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     renderDonutChart() {
